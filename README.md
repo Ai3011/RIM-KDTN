@@ -97,15 +97,16 @@ project/
 1. **Установка Python библиотек:**
    ```bash
    pip install pyqt5 pyserial matplotlib pyinstaller
-Установка компилятора GCC (MinGW‑w64) в среде MSYS2:
+2. **Установка компилятора GCC (MinGW‑w64) в среде MSYS2:**
 
-bash
-pacman -S mingw-w64-ucrt-x86_64-gcc
-Сборка DLL (выполнить в папке backend/):
+    ```bash
+    pacman -S mingw-w64-ucrt-x86_64-gcc
+3. **Сборка DLL :**
 
-bash
-g++ -shared -o rs485_backend.dll rs485_backend.cpp -static-libgcc -static-libstdc++ -lws2_32 -DBUILD_DLL
-Сборка .exe файла (в корне проекта):
+    ```bash
+    g++ -shared -o rs485_backend.dll rs485_backend.cpp -static-libgcc -static-libstdc++ -lws2_32 -DBUILD_DLL
 
-bash
-pyinstaller --onefile --name "KDTN" --add-binary "rs485_backend.dll;." --hidden-import "matplotlib.backends.backend_qt5agg" --hidden-import "matplotlib.backends.backend_qt5" main.py
+4. **Сборка .exe файла:**
+
+    ```bash
+    pyinstaller --onefile --name "KDTN" --add-binary "rs485_backend.dll;." --hidden-import "matplotlib.backends.backend_qt5agg" --hidden-import "matplotlib.backends.backend_qt5" main.py
