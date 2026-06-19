@@ -65,20 +65,27 @@
 - Точка входа.
 - Создаёт экземпляр `QApplication` и главное окно `MainWindow`.
 
----
 
-## Как запустить проект
-
-## Из исходного кода (Python)
-1. Установка Python библиотек:
-   
-  pip install pyqt5 pyserial matplotlib pyinstaller
-  
-3. Установка компилятор GCC (MinGW‑w64) в среде MSYS2 (С++)
-  pacman -S mingw-w64-ucrt-x86_64-gcc
-4. Сборка DLL ( Написать команду в папке Backend)
-  g++ -shared -o rs485_backend.dll rs485_backend.cpp -static-libgcc -static-libstdc++ -lws2_32 -DBUILD_DLL
-5. Сборка .exe файла
-  pyinstaller --onefile --name "KDTN" --add-binary "rs485_backend.dll;." --hidden-import "matplotlib.backends.backend_qt5agg" --hidden-import "matplotlib.backends.backend_qt5" main.py
-
+## Структура проекта
+project/
+├── backend/                     
+│   ├── rs485_backend.cpp        
+│   └── rs485_backend.py         
+├── database/                    
+│   ├── db_manager.py            
+│   └── sensors.db               
+│
+├── gui/                         
+│   ├── main_window.py           
+│   ├── sensor_widget.py        
+│   ├── settings_dialog.py       
+│   └── database_viewer.py       
+│
+├── main.py                      
+├── rs485_backend.dll            
+├── KDTN.spec                    
+├── build/                      
+└── dist/                        
+    ├── KDTN.exe                 
+    └── sensors.db
        
