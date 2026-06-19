@@ -69,7 +69,7 @@
 
 ## Как запустить проект
 
-### Из исходного кода (Python)
+## Из исходного кода (Python)
 1. Установка Python библиотек:
    
   pip install pyqt5 pyserial matplotlib pyinstaller
@@ -81,25 +81,4 @@
 5. Сборка .exe файла
   pyinstaller --onefile --name "KDTN" --add-binary "rs485_backend.dll;." --hidden-import "matplotlib.backends.backend_qt5agg" --hidden-import "matplotlib.backends.backend_qt5" main.py
 
-## Структура проекта
-project/
-├── backend/                     
-│   ├── rs485_backend.cpp        
-│   └── rs485_backend.py         
-├── database/                    
-│   ├── db_manager.py            
-│   └── sensors.db               
-│
-├── gui/                         
-│   ├── main_window.py           
-│   ├── sensor_widget.py        
-│   ├── settings_dialog.py       
-│   └── database_viewer.py       
-│
-├── main.py                      
-├── rs485_backend.dll            
-├── KDTN.spec                    
-├── build/                      
-└── dist/                        
-    ├── KDTN.exe                 
-    └── sensors.db               
+       
