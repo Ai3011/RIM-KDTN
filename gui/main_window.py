@@ -1,3 +1,5 @@
+# main_window.py (полная версия с раздельным опросом)
+import sys
 from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, 
                              QHBoxLayout, QGridLayout, QPushButton)
 from PyQt5.QtCore import QTimer
@@ -125,53 +127,70 @@ class MainWindow(QMainWindow):
         self.sensor_widgets[idx].update_voltage_ranges(None, None, None, None)
 
     # --------------------------------------------------------------
-    # Опрос всех датчиков: чтение адреса (при необходимости),
-    # серийного номера и служебных параметров
+    # ОПРОС ОДНОГО ДАТЧИКА (вынесено из poll_all_devices)
+    # --------------------------------------------------------------
+    def poll_single_device(self, idx):
+        """
+        Опрашивает один датчик по индексу:
+        - определяет адрес, если он равен 0
+        - читает серийный номер, сборку, версию, тип
+        - обновляет виджет
+        Возвращает True, если удалось прочитать основные данные, иначе False.
+        """
+        port = self.sensor_settings[idx].get("port", "COM5")
+        addr = self.sensor_settings[idx].get("address", 0)
+
+        # Если адрес не задан, пытаемся прочитать через широковещательный запрос
+        if addr == 0:
+            response = self.backend.read_address(port)
+            if response:
+                detected_addr = parse_address_response(response)
+                if detected_addr is not None:
+                    addr = detected_addr
+                    self.sensor_settings[idx]["address"] = addr
+                    save_settings(self.sensor_settings)
+                    print(f"Датчик {idx+1}: адрес автоматически определён: {addr}")
+                else:
+                    print(f"Датчик {idx+1}: не удалось прочитать адрес (неверный ответ)")
+            else:
+                print(f"Датчик {idx+1}: устройство не ответило на запрос адреса")
+
+        # Теперь опрашиваем устройство по известному адресу
+        response = self.backend.read_device(addr, port)
+        if response and len(response) >= 12:
+            data = parse_response(response)
+            if data:
+                self.current_serial[idx] = data["serial"]
+                self.sensor_widgets[idx].update_serial(data["serial"])
+                self.sensor_widgets[idx].update_build_version(data["build"], data["version"])
+                self.sensor_widgets[idx].update_device_type(data["device_type"])
+                # Читаем служебные параметры
+                self.update_service_params(idx, addr, port)
+                print(f"Датчик {idx+1}: SN={data['serial']}, build={data['build']}, version={data['version']}, type={data['device_type']}")
+                return True
+            else:
+                self.current_serial[idx] = None
+                self.sensor_widgets[idx].update_serial("--")
+                self.sensor_widgets[idx].update_build_version(None, None)
+                self.sensor_widgets[idx].update_device_type(None)
+                self.clear_sensor_data(idx)
+                return False
+        else:
+            self.current_serial[idx] = None
+            self.sensor_widgets[idx].update_serial("--")
+            self.sensor_widgets[idx].update_build_version(None, None)
+            self.sensor_widgets[idx].update_device_type(None)
+            self.clear_sensor_data(idx)
+            print(f"Не удалось опросить датчик {idx+1} (порт {port}, адрес {addr})")
+            return False
+
+    # --------------------------------------------------------------
+    # ОПРОС ВСЕХ ДАТЧИКОВ (теперь через poll_single_device)
     # --------------------------------------------------------------
     def poll_all_devices(self):
         for i in range(4):
-            port = self.sensor_settings[i].get("port", "COM5")
-            addr = self.sensor_settings[i].get("address", 0)
-
-            # Если адрес не задан, пытаемся прочитать через широковещательный запрос
-            if addr == 0:
-                response = self.backend.read_address(port)
-                if response:
-                    detected_addr = parse_address_response(response)
-                    if detected_addr is not None:
-                        addr = detected_addr
-                        self.sensor_settings[i]["address"] = addr
-                        save_settings(self.sensor_settings)
-                        print(f"Датчик {i+1}: адрес автоматически определён: {addr}")
-                    else:
-                        print(f"Датчик {i+1}: не удалось прочитать адрес (неверный ответ)")
-                else:
-                    print(f"Датчик {i+1}: устройство не ответило на запрос адреса")
-
-            # Теперь опрашиваем устройство по известному адресу
-            response = self.backend.read_device(addr, port)
-            if response and len(response) >= 12:
-                data = parse_response(response)
-                if data:
-                    self.current_serial[i] = data["serial"]
-                    self.sensor_widgets[i].update_serial(data["serial"])
-                    self.sensor_widgets[i].update_build_version(data["build"], data["version"])
-                    self.sensor_widgets[i].update_device_type(data["device_type"])
-                    self.update_service_params(i, addr, port)
-                    print(f"Датчик {i+1}: SN={data['serial']}, build={data['build']}, version={data['version']}, type={data['device_type']}")
-                else:
-                    self.current_serial[i] = None
-                    self.sensor_widgets[i].update_serial("--")
-                    self.sensor_widgets[i].update_build_version(None, None)
-                    self.sensor_widgets[i].update_device_type(None)
-                    self.clear_sensor_data(i)
-            else:
-                self.current_serial[i] = None
-                self.sensor_widgets[i].update_serial("--")
-                self.sensor_widgets[i].update_build_version(None, None)
-                self.sensor_widgets[i].update_device_type(None)
-                self.clear_sensor_data(i)
-                print(f"Не удалось опросить датчик {i+1} (порт {port}, адрес {addr})")
+            self.poll_single_device(i)
+        # После опроса всех запускаем автоматические тесты (если нужно)
         self.start_automatic_tests()
 
     # --------------------------------------------------------------
@@ -416,33 +435,66 @@ class MainWindow(QMainWindow):
                     self.stop_test_for_sensor(i+1, user_initiated=False)
 
     # --------------------------------------------------------------
-    # Открытие диалога настроек
+    # Открытие диалога настроек (изменено!)
     # --------------------------------------------------------------
     def open_settings(self):
+    # Загружаем текущие настройки (на случай внешних изменений)
         self.sensor_settings = load_settings()
+        old_settings = [dict(s) for s in self.sensor_settings]
+
         dialog = SettingsDialog(self.sensor_settings, self.current_serial, self)
         dialog.settings_changed.connect(self.save_all_settings)
         if dialog.exec_():
             new_settings = dialog.get_settings()
+        # Сохраняем новые параметры
             for i in range(4):
                 self.sensor_settings[i]["port"] = new_settings[i]["port"]
                 self.sensor_settings[i]["baud"] = new_settings[i]["baud"]
                 self.sensor_settings[i]["duration_min"] = new_settings[i]["duration_min"]
             save_settings(self.sensor_settings)
+
+        # Обновляем отображение портов, времени, ручного режима
             self.update_port_info_all()
             self.update_total_time_all()
             self.manual_mode = [s.get("manual_testing", False) for s in self.sensor_settings]
             for i in range(4):
                 self.sensor_widgets[i].set_manual_mode(self.manual_mode[i])
+            # Обновляем состояние кнопок (активен ли тест), но НЕ трогаем результат
                 self.sensor_widgets[i].update_buttons_state(
                     test_active=self.test_active[i],
                     test_finished=self.test_finished[i]
                 )
-                self.sensor_widgets[i].update_test_result(None)
+            # !!! Убрали вызов update_test_result(None) – теперь результаты не сбрасываются
+
+        # Определяем, какие датчики изменились (порт, адрес, длительность)
+            changed_indices = []
             for i in range(4):
-                self.auto_started[i] = False
-            self.poll_all_devices()
-            print("Настройки обновлены, выполнен опрос устройств")
+                old = old_settings[i]
+                new = self.sensor_settings[i]
+                if (old.get("port") != new.get("port") or
+                    old.get("address") != new.get("address") or
+                    old.get("duration_min") != new.get("duration_min")):
+                    changed_indices.append(i)
+
+        # Обрабатываем только изменённые датчики
+            for idx in changed_indices:
+            # Если тест активен – останавливаем (записывается как "Прерван")
+                if self.test_active[idx]:
+                    self.stop_test_for_sensor(idx+1, user_initiated=True)
+                    self.auto_started[idx] = False
+
+            # Перечитываем параметры датчика (серийный номер, версию и т.д.)
+                success = self.poll_single_device(idx)
+                if success:
+                # Если не ручной режим, тест не активен и есть серийный номер – запускаем новый тест
+                    if (not self.manual_mode[idx] and not self.test_active[idx] and
+                        self.current_serial[idx] is not None):
+                        self.start_test_for_sensor(idx+1, automatic=True)
+                        self.auto_started[idx] = True
+                else:
+                    self.auto_started[idx] = False
+
+            print(f"Настройки обновлены, перечитаны датчики: {[i+1 for i in changed_indices]}")
 
     # --------------------------------------------------------------
     # Сохранение настроек из сигнала (при изменении в диалоге)

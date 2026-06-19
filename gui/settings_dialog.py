@@ -24,6 +24,9 @@ class SettingsDialog(QDialog):
         self.sensor_settings = sensor_settings[:]
         self.serial_numbers = serial_numbers[:] if serial_numbers else [None]*4
 
+        # Сохраняем начальные порты из настроек (они могут отсутствовать в системе)
+        self.initial_ports = [s.get("port", "") for s in sensor_settings]
+
         layout = QVBoxLayout(self)
         layout.addWidget(QLabel("Настройка COM-порта, скорости и длительности теста:"))
 
@@ -42,9 +45,9 @@ class SettingsDialog(QDialog):
             label_port = QLabel("COM-порт:")
             port_combo = QComboBox()
             port_combo.setEditable(False)
-            port_combo.setCurrentText(sensor_settings[i]["port"])
+            # Пока не устанавливаем текст, чтобы не потерять порт
             refresh_btn = QPushButton("Обновить")
-            refresh_btn.clicked.connect(lambda checked, pc=port_combo: self.refresh_ports(pc))
+            refresh_btn.clicked.connect(lambda checked, pc=port_combo: self.refresh_ports(pc, None))
 
             # ---------- Выбор скорости ----------
             label_baud = QLabel("Скорость (бод):")
@@ -99,7 +102,7 @@ class SettingsDialog(QDialog):
             self.second_spins.append(second_spin)
             self.serial_labels.append(serial_label)
 
-        # ---------- Кнопки OK и Cancel ----------
+        # ---------- Кнопки OK и Cancel (переименованы) ----------
         button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         button_box.button(QDialogButtonBox.Ok).setText("Сохранить")
         button_box.button(QDialogButtonBox.Cancel).setText("Отмена")
@@ -107,46 +110,70 @@ class SettingsDialog(QDialog):
         button_box.rejected.connect(self.reject)
         layout.addWidget(button_box)
 
-        # Первоначальное заполнение списков портов
-        self.refresh_all_ports()
+        # Заполняем списки портов, передавая начальные порты из настроек
+        self.refresh_all_ports(self.initial_ports)
 
     # --------------------------------------------------------------
     # Обновление списка доступных COM-портов для одного комбобокса
     # --------------------------------------------------------------
-    def refresh_ports(self, port_combo):
+    def refresh_ports(self, port_combo, initial_port=None):
+        """
+        Обновляет список портов для конкретного комбобокса.
+        Если передан initial_port, он будет добавлен в список даже если его нет в системе.
+        """
+        # Сохраняем текущий выбранный порт (если есть)
         current_text = port_combo.currentText()
+        # Если передан initial_port и он не пустой, используем его как основной
+        if initial_port and not current_text:
+            current_text = initial_port
+
         port_combo.clear()
         ports = serial.tools.list_ports.comports()
         port_names = [port.device for port in ports]
+        # Добавляем current_text, если он не пустой и отсутствует в списке
         if current_text and current_text not in port_names:
             port_names.append(current_text)
         port_names.sort()
         for name in port_names:
             port_combo.addItem(name)
-        idx = port_combo.findText(current_text)
-        if idx >= 0:
-            port_combo.setCurrentIndex(idx)
-        elif port_combo.count() > 0:
-            port_combo.setCurrentIndex(0)
+
+        # Восстанавливаем выбор
+        if current_text:
+            idx = port_combo.findText(current_text)
+            if idx >= 0:
+                port_combo.setCurrentIndex(idx)
+            elif port_combo.count() > 0:
+                port_combo.setCurrentIndex(0)
+        else:
+            port_combo.setCurrentIndex(-1)  # ничего не выбрано
 
     # --------------------------------------------------------------
     # Обновление списков портов для всех комбобоксов
     # --------------------------------------------------------------
-    def refresh_all_ports(self):
-        for combo in self.port_combos:
-            self.refresh_ports(combo)
+    def refresh_all_ports(self, initial_ports=None):
+        """
+        Обновляет списки портов для всех датчиков.
+        initial_ports – список из 4 строк с портами из настроек.
+        """
+        if initial_ports is None:
+            initial_ports = [""] * 4
+        for i, combo in enumerate(self.port_combos):
+            # Передаём порт из настроек для каждого датчика
+            self.refresh_ports(combo, initial_ports[i] if i < len(initial_ports) else "")
 
     # --------------------------------------------------------------
     # Возврат текущих настроек (без серийных номеров, они только для чтения)
     # --------------------------------------------------------------
     def get_settings(self):
+        """Возвращает настройки (без серийного номера)"""
         new_settings = []
         for i in range(4):
             minutes = self.minute_spins[i].value()
             seconds = self.second_spins[i].value()
             duration_min = minutes + seconds / 60.0
+            port_text = self.port_combos[i].currentText().strip()
             new_settings.append({
-                "port": self.port_combos[i].currentText().strip(),
+                "port": port_text,
                 "baud": int(self.baud_combos[i].currentText()),
                 "duration_min": duration_min
             })

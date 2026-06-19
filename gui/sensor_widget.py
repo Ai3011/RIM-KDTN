@@ -5,11 +5,7 @@ matplotlib.use('Qt5Agg')
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
-# ------------------------------------------------------------------
-# Виджет одного датчика – отображает информацию, графики и кнопки управления
-# ------------------------------------------------------------------
 class SensorWidget(QFrame):
-    # Сигналы, отправляемые главному окну
     start_test_clicked = pyqtSignal(int)
     stop_test_clicked = pyqtSignal(int)
     repeat_test_clicked = pyqtSignal(int)
@@ -23,16 +19,16 @@ class SensorWidget(QFrame):
         self.default_color = "#f0f0f0"
         self._manual_mode = False
 
-        # ----- Основные компоновки (вертикальная карточка) -----
+        # Главный вертикальный контейнер
         main_layout = QVBoxLayout(self)
         main_layout.setSpacing(10)
         main_layout.setContentsMargins(12, 12, 12, 12)
 
-        # ----- Верхняя часть: данные (слева) и графики (справа) -----
+        # --- Верхняя часть: информация (слева) и графики (справа) ---
         top_layout = QHBoxLayout()
         top_layout.setSpacing(15)
 
-        # ---------- Левая колонка: информация и параметры ----------
+        # Левая колонка (информация)
         left_col = QVBoxLayout()
         left_col.setSpacing(5)
 
@@ -56,7 +52,6 @@ class SensorWidget(QFrame):
         self.label_temperature.setStyleSheet("font-size: 10pt; font-weight: bold;")
         left_col.addWidget(self.label_temperature)
 
-        # Строка с портом, длительностью и чекбоксом ручного режима
         info_layout = QHBoxLayout()
         self.label_port_info = QLabel("Порт: --, Скорость: --")
         self.label_port_info.setStyleSheet("font-size: 10pt;")
@@ -71,12 +66,10 @@ class SensorWidget(QFrame):
         info_layout.addWidget(self.manual_check)
         left_col.addLayout(info_layout)
 
-        # Таймер обратного отсчёта
         self.label_time_left = QLabel("Тест не активен")
         self.label_time_left.setStyleSheet("color: gray; font-size: 14pt; font-weight: bold;")
         left_col.addWidget(self.label_time_left)
 
-        # Основные параметры (сетка 2×2)
         param_grid = QGridLayout()
         param_grid.setSpacing(4)
         self.label_voltage = QLabel("Напр: -- В")
@@ -93,7 +86,6 @@ class SensorWidget(QFrame):
         param_grid.addWidget(self.label_battery, 1, 1)
         left_col.addLayout(param_grid)
 
-        # Диапазоны (начало → конец)
         range_layout = QHBoxLayout()
         self.label_ionistor_range = QLabel("Ионистор: --→-- В")
         self.label_ionistor_range.setStyleSheet("font-size: 10pt;")
@@ -104,20 +96,10 @@ class SensorWidget(QFrame):
         range_layout.addWidget(self.label_battery_range)
         left_col.addLayout(range_layout)
 
-        # Кнопка "Начать" (показывается только в ручном режиме)
-        btn_start_layout = QHBoxLayout()
-        self.start_btn = QPushButton("Начать")
-        self.start_btn.setFixedHeight(30)
-        self.start_btn.setStyleSheet("font-size: 10pt;")
-        self.start_btn.setVisible(False)
-        btn_start_layout.addWidget(self.start_btn)
-        btn_start_layout.addStretch()
-        left_col.addLayout(btn_start_layout)
-
         left_col.addStretch()
         top_layout.addLayout(left_col, stretch=2)
 
-        # ---------- Правая колонка: два графика ----------
+        # Правая колонка (графики)
         right_col = QVBoxLayout()
         right_col.setSpacing(5)
 
@@ -149,11 +131,26 @@ class SensorWidget(QFrame):
 
         main_layout.addLayout(top_layout)
 
-        # ----- Нижняя часть: кнопки "Стоп" и "Повтор" (по центру) -----
+        # --- Нижняя часть: кнопки "Начать", "Стоп" и "Повтор" (по центру) ---
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(20)
         btn_layout.addStretch()
 
+        # Кнопка "Начать" (синяя рамка) – такая же, как "Стоп" и "Повтор"
+        self.start_btn = QPushButton("Начать")
+        self.start_btn.setFixedSize(120, 50)
+        self.start_btn.setStyleSheet("""
+            font-size: 14pt; 
+            font-weight: bold; 
+            color: #2196F3; 
+            background-color: transparent; 
+            border: 2px solid #2196F3;
+            border-radius: 6px;
+        """)
+        self.start_btn.setVisible(False)   # по умолчанию скрыта
+        btn_layout.addWidget(self.start_btn)
+
+        # Кнопка "Стоп" (красная рамка)
         self.stop_btn = QPushButton("Стоп")
         self.stop_btn.setFixedSize(120, 50)
         self.stop_btn.setStyleSheet("""
@@ -167,6 +164,7 @@ class SensorWidget(QFrame):
         self.stop_btn.setEnabled(False)
         btn_layout.addWidget(self.stop_btn)
 
+        # Кнопка "Повтор" (зелёная рамка)
         self.repeat_btn = QPushButton("Повтор")
         self.repeat_btn.setFixedSize(120, 50)
         self.repeat_btn.setStyleSheet("""
@@ -183,7 +181,7 @@ class SensorWidget(QFrame):
         btn_layout.addStretch()
         main_layout.addLayout(btn_layout)
 
-        # ----- Подключение сигналов кнопок -----
+        # Подключение сигналов кнопок
         self.start_btn.clicked.connect(self.on_start_clicked)
         self.stop_btn.clicked.connect(self.on_stop_clicked)
         self.repeat_btn.clicked.connect(self.on_repeat_clicked)
@@ -213,21 +211,30 @@ class SensorWidget(QFrame):
         self.manual_check.blockSignals(True)
         self.manual_check.setChecked(manual)
         self.manual_check.blockSignals(False)
-        self.start_btn.setVisible(manual)
+        # После изменения режима обновляем видимость и активность кнопок
         self.update_buttons_state(test_active=False, test_finished=False)
 
     def update_buttons_state(self, test_active=False, test_finished=False):
+        """
+        Обновляет состояние кнопок в зависимости от активности теста и режима.
+        - test_active: идёт ли тест
+        - test_finished: завершён ли тест (показывает, нужна ли кнопка "Повтор")
+        """
         if test_active:
+            # Во время теста: "Начать" отключена, "Стоп" активна, "Повтор" отключена
             self.start_btn.setEnabled(False)
             self.stop_btn.setEnabled(True)
             self.repeat_btn.setEnabled(False)
         else:
+            # Тест не активен
             self.stop_btn.setEnabled(False)
             if self._manual_mode:
+                # Ручной режим: показываем "Начать", скрываем "Повтор"
                 self.start_btn.setVisible(True)
                 self.start_btn.setEnabled(True)
                 self.repeat_btn.setEnabled(False)
             else:
+                # Автоматический режим: скрываем "Начать", показываем "Повтор" только если тест завершён
                 self.start_btn.setVisible(False)
                 self.start_btn.setEnabled(False)
                 if test_finished:
@@ -272,7 +279,7 @@ class SensorWidget(QFrame):
 
     def update_data(self, voltage, current, ionistor, battery):
         self.label_voltage.setText(f"Напр: {voltage:.2f} В" if voltage is not None else "Напр: -- В")
-        self.label_current.setText(f"Ток: {current:.3f} А" if current is not None else "Ток: -- А")
+        self.label_current.setText(f"Ток: {current:.3f} мА" if current is not None else "Ток: -- мА")
         self.label_ionistor.setText(f"Ионистор: {ionistor:.2f} В" if ionistor is not None else "Ионистор: -- В")
         self.label_battery.setText(f"Аккум: {battery:.2f} В" if battery is not None else "Аккум: -- В")
 
@@ -286,9 +293,6 @@ class SensorWidget(QFrame):
         else:
             self.label_battery_range.setText("Аккум: --→-- В")
 
-    # --------------------------------------------------------------
-    # Обновление таймера (обратный отсчёт)
-    # --------------------------------------------------------------
     def update_time_left(self, seconds_left):
         if seconds_left is None or seconds_left <= 0:
             self.label_time_left.setText("Тест не активен")
@@ -299,9 +303,6 @@ class SensorWidget(QFrame):
             self.label_time_left.setText(f"{minutes:02d}:{seconds:02d}")
             self.label_time_left.setStyleSheet("color: blue; font-size: 14pt; font-weight: bold;")
 
-    # --------------------------------------------------------------
-    # Обновление результата теста и цвета фона
-    # --------------------------------------------------------------
     def update_test_result(self, result, start_ionistor=None, end_ionistor=None,
                            start_battery=None, end_battery=None):
         if result is None:
@@ -316,9 +317,6 @@ class SensorWidget(QFrame):
             elif result == "Прерван":
                 self.setStyleSheet("background-color: #ffd700;")
 
-    # --------------------------------------------------------------
-    # Обновление графиков
-    # --------------------------------------------------------------
     def update_graphs(self, measurements):
         if not measurements:
             self.clear_graphs()
@@ -343,9 +341,6 @@ class SensorWidget(QFrame):
         self.ax_battery.autoscale_view()
         self.canvas.draw()
 
-    # --------------------------------------------------------------
-    # Сброс виджета в начальное состояние
-    # --------------------------------------------------------------
     def reset_widget(self):
         self.update_serial("--")
         self.update_build_version(None, None)
