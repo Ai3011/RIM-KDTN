@@ -105,4 +105,4 @@ project/
 4. **Сборка .exe файла:**
 
     ```bash
-    pyinstaller --onefile --name "KDTN" --add-binary "rs485_backend.dll;." --hidden-import "matplotlib.backends.backend_qt5agg" --hidden-import "matplotlib.backends.backend_qt5" main.py
+    pyinstaller --onefile --noconsole --name "KDTN" --add-binary "rs485_backend.dll;." --hidden-import "matplotlib.backends.backend_qt5agg" --hidden-import "matplotlib.backends.backend_qt5" main.py
